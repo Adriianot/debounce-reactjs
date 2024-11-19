@@ -1,22 +1,42 @@
 import React, { useEffect, useState } from "react";
 import { useDebounce } from "./hooks/useDebounce";
+import './App.css';
 
 export const App = () => {
   const [userInput, setUserInput] = useState("");
   const [data, setData] = useState([]);
-  const debounceValue = useDebounce(userInput, 500);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const debounceValue = useDebounce(userInput, 800);
 
   useEffect(() => {
-    const getData = async () => {
-      const data = await fetch(
-        `https://dummyjson.com/products/search?q=${debounceValue}`
-      );
-      const result = await data.json();
-      setData(result.products);
-    };
-    
+    if (!debounceValue) {
+      setData([]);
+      return;
+    }
 
-    userInput ? getData() : setData([]);
+    console.log("Fetching data for:", debounceValue);
+
+    const getData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(
+          `https://dummyjson.com/products/search?q=${debounceValue}`
+        );
+        if (!response.ok) throw new Error("Error al obtener datos del API");
+        const result = await response.json();
+        setData(result.products || []);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    if (debounceValue) {
+      getData();
+    }
   }, [debounceValue]);
 
   const handleChange = ({ target }) => {
@@ -24,16 +44,34 @@ export const App = () => {
   };
 
   return (
-    <div>
-      Buscar: <input type="text" value={userInput} onChange={handleChange} />
+    <div className="container">
+      <h1>Buscador de Productos</h1>
+      <input
+        type="text"
+        placeholder="Buscar productos..."
+        value={userInput}
+        onChange={handleChange}
+        className="search-input"
+      />
+      {loading && <p className="loading">Cargando...</p>}
+      {error && <p className="error">{error}</p>}
+      {!loading && userInput.length > 0 && data.length === 0 && (
+        <p className="no-results">No se encontraron productos.</p>
+      )}
       <div className="products">
-        {userInput.length > 0 &&
-          data.map((product, idx) => (
-            <div key={`image-${idx}`}>
-              <p>{product.brand}</p>
-              <img src={product.thumbnail} height={140} width={180} />
-            </div>
-          ))}
+        {data.map((product) => (
+          <div className="product" key={product.id}>
+            <img
+              src={product.thumbnail}
+              alt={`Imagen de ${product.title}`}
+              className="product-image"
+            />
+            <h3>{product.title}</h3>
+            <p>Precio: ${product.price.toFixed(2)}</p>
+            <p>Calificación: {product.rating} / 5</p>
+            <p>Marca: {product.brand}</p>
+          </div>
+        ))}
       </div>
     </div>
   );
